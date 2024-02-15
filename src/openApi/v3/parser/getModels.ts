@@ -3,9 +3,8 @@ import { reservedWords } from '../../../utils/reservedWords';
 import type { OpenApi } from '../interfaces/OpenApi';
 import { getModel } from './getModel';
 import { getType } from './getType';
-import type { OpenApiPaths } from '../interfaces/OpenApiPaths';
 import { OpenApiSchema } from '../interfaces/OpenApiSchema';
-import { OpenApiParameter } from '../interfaces/OpenApiParameter';
+import camelCase from 'camelcase';
 
 export const getModels = (openApi: OpenApi): Model[] => {
     const models: Model[] = [];
@@ -26,7 +25,11 @@ export const getModels = (openApi: OpenApi): Model[] => {
             if(!parameters) {
                 continue;
             }
-            const operationId = operation.operationId;
+            const schemaName = operation.operationId ?? url.split(new RegExp('[/{}]', 'g'))
+                .filter(t=>t[0] != undefined)
+                .map(t=> camelCase(t, { pascalCase: true })).join('');
+
+
             const openApiSchema: OpenApiSchema = {};
             openApiSchema.type = 'object'
             openApiSchema.required = []
@@ -34,13 +37,14 @@ export const getModels = (openApi: OpenApi): Model[] => {
             parameters.forEach(param=> {
                 const schema = param.schema;
                 if(schema) {
-                    openApiSchema.properties![param.name] = schema;
+                    const keyParamName = camelCase(param.name);
+                    openApiSchema.properties![keyParamName] = schema;
                     if(param.required) {
-                        openApiSchema.required!.push(param.name);
+                        openApiSchema.required!.push(keyParamName);
                     }
                 }
             })
-            const definitionType = getType(`${operationId}Query`);
+            const definitionType = getType(`${schemaName}Query`);
             const model = getModel(openApi, openApiSchema, true, definitionType.base.replace(reservedWords, '_$1'));
             models.push(model);
         }
